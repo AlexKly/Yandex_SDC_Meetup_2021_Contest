@@ -2,7 +2,7 @@ import numpy as np
 
 
 test_dir = "sdc_meetup_2021_tests/"
-test_file = "01"
+test_file = "03"
 
 
 # States of FM:
@@ -124,6 +124,14 @@ class Robot:
             self.path = ''
             self.state = SEARCH_NEAREST_AND_THE_OLDEST_ORDER
 
+    def Interrupt(self):
+        self.path = self.path[:59] + "S"
+        print(self.path, flush=True)
+        self.state = SEARCH_NEAREST_AND_THE_OLDEST_ORDER
+        self.order_ID = None
+        self.current_direction = None
+
+        return int(0)
 
 def FormedStructOrder(order_ID, status, pos_x_start, pos_y_start, pos_x_finish, pos_y_finish, max_tips, gen):
     return {
@@ -248,16 +256,20 @@ if __name__ == '__main__':
     step = np.zeros(R, dtype=int)
     extra = np.zeros(R, dtype=int)
     delivery_cost = np.zeros(R, dtype=int)
+    robots_in_idle = np.zeros(R, dtype=int)
     virtual_minute = 60
+    cnt_string = 0
     for i in range(T):
         # Number of new orders:
-        k = test_list[N+2+2*i]
+        k = test_list[N+2+cnt_string]
         k = int(k)
+        cnt_string = cnt_string + 1
         if k != 0:
             for j in range(k):
                 # Coordinates start and finish points:
-                Srow, Scol, Frow, Fcol = test_list[N+2+2*i+1].split()
+                Srow, Scol, Frow, Fcol = test_list[N+2+cnt_string].split()
                 Srow, Scol, Frow, Fcol = int(Srow)-1, int(Scol)-1, int(Frow)-1, int(Fcol)-1
+                cnt_string = cnt_string + 1
                 Orders.append(FormedStructOrder(order_ID=j, status=ACTIVE, pos_x_start=Srow, pos_y_start=Scol, pos_x_finish=Frow, pos_y_finish=Fcol, max_tips=MaxTips, gen=i))
             v_sec = 0
             while v_sec < virtual_minute:
@@ -265,6 +277,7 @@ if __name__ == '__main__':
                     # Connect free robots with nearest free orders:
                     if Robots[j].state == SEARCH_NEAREST_AND_THE_OLDEST_ORDER:
                         #print("======== 0 ========")
+                        robots_in_idle[j] = 0
                         ind_order = Robots[j].SearchNearestAndTheOldestOrder(order_info=Orders, grid=grid)
                         if ind_order is not None:
                             Orders[ind_order]['Status'] = IN_PROGRESS
@@ -294,7 +307,14 @@ if __name__ == '__main__':
                     elif Robots[j].state == IDLE_FREE_ORDER:
                         #print("======== 5 ========")
                         Robots[j].Wait(sec=v_sec)
+                        robots_in_idle[j] = 1
                         v_sec = v_sec + 1
+                    if v_sec == 60:
+                        
+                        Orders[Robots[j].order_ID]['Status'] = NOT_ACTIVE
+                        delivery_cost[j] = Robots[j].Interrupt()
+
+
                     #print(Robots[j].state, Robots[j].robot_ID, Robots[j].order_ID, Robots[j].path, Robots[j].current_direction, Robots[j].pos_x + 1, Robots[j].pos_y + 1)
                     #print(Orders)
         else:
